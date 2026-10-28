@@ -70,6 +70,8 @@ BOARDS = {
     "Seeed SenseCAP Watcher": "watcher",
     "M5Stack StickS3": "sticks3",
     "ALIENTEK ATK-DNESP32S3-BOX0": "atk-box0",
+    "ESP32-S3-N16R8": "n16r8",
+    "ESP32-S3 Super Mini": "super-mini",
     "M5Stack Cardputer ADV": "cardputer-adv",
     "M5Stack StickC Plus2": "plus2",
     "M5Stack StopWatch": "stopwatch",
@@ -83,7 +85,7 @@ BOARDS = {
     "VN ESP32-S3 1.83-inch NV3023": "vn183",
     "FoloToy AI Passport": "ai-passport",
 }
-CHAT_BOARDS = ("s3", "s3n", "s3-216", "185c", "aipi", "box3", "sticks3", "atk-box0", "watcher", "stopwatch", "xiao147", "cores3", "core2", "fnk0104b", "jc3248w535", "lcd7", "lcd128", "vn183", "echoear")
+CHAT_BOARDS = ("s3", "s3n", "s3-216", "185c", "aipi", "box3", "sticks3", "atk-box0", "n16r8", "super-mini", "watcher", "stopwatch", "xiao147", "cores3", "core2", "fnk0104b", "jc3248w535", "lcd7", "lcd128", "vn183", "echoear")
 
 
 class Stop(Exception):

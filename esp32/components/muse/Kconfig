@@ -15,17 +15,19 @@
 menu "Muse"
 
     choice MUSE_BOARD
-        prompt "Board with the full UI"
+        prompt "Muse board"
         default MUSE_BOARD_NONE
         help
-            The UI is the voice companion on boards with a screen: an
-            animated avatar, push-to-talk chat, settings, and battery
-            handling. It runs beside Home Link, which owns Wi-Fi, BLE
-            pairing, credentials and OTA. Pick the board it runs on, or none
-            for a Link without a display.
+            Muse runs beside Home Link, which owns Wi-Fi, BLE pairing,
+            credentials and OTA. Select a full UI board, a headless audio
+            board, or none for Home Link without the Muse voice companion.
 
         config MUSE_BOARD_NONE
             bool "None (Home Link without a display)"
+
+        config MUSE_BOARD_ESP32S3_I2S_AUDIO
+            bool "ESP32-S3 audio-only (INMP441 + MAX98357A)"
+            depends on IDF_TARGET_ESP32S3
 
         config MUSE_BOARD_WAVESHARE_S3_175C
             bool "Waveshare ESP32-S3-Touch-AMOLED-1.75C"
@@ -137,6 +139,7 @@ menu "Muse"
     config MUSE_BOARD_ID
         string
         default "waveshare_s3_175c" if MUSE_BOARD_WAVESHARE_S3_175C
+        default "esp32s3_i2s_audio" if MUSE_BOARD_ESP32S3_I2S_AUDIO
         default "waveshare_s3_175" if MUSE_BOARD_WAVESHARE_S3_175
         default "ostb_echoear_2st" if MUSE_BOARD_OSTB_ECHOEAR_2ST
         default "reterminal_sticky" if MUSE_BOARD_RETERMINAL_STICKY
@@ -163,6 +166,16 @@ menu "Muse"
         default "vn_s3_183" if MUSE_BOARD_VN_S3_183
         default "ai_passport" if MUSE_BOARD_AI_PASSPORT
         default "none"
+
+    config MUSE_UI_HEADLESS
+        bool
+        depends on MUSE_ENABLED
+        default y if MUSE_BOARD_ESP32S3_I2S_AUDIO
+
+    config MUSE_HEADLESS_BOARD_NAME
+        string
+        depends on MUSE_BOARD_ESP32S3_I2S_AUDIO
+        default "ESP32-S3 I2S Audio"
 
     # E-paper boards draw Muse with FreeInk (components/muse/eink/) instead
     # of LVGL: FreeInk drives the panel and its refreshes, and draws the face,

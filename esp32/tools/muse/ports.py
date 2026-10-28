@@ -56,6 +56,8 @@ USB = {
     "c6-206": USJ,
     "sticks3": USJ,
     "atk-box0": USJ,
+    "n16r8": CH343,
+    "super-mini": USJ,
     "cardputer-adv": USJ,
     "stopwatch": USJ,
     "xiao147": USJ,
@@ -72,7 +74,7 @@ USB = {
 }
 # Boards whose console takes Muse's serial commands (tools/muse/chat.py). The
 # Watcher reads them on its CH342 port with MUSE_CONSOLE_UART.
-COMMANDS = ("s3", "s3n", "s3-216", "185c", "aipi", "box3", "c6", "c6-206", "sticks3", "atk-box0", "watcher", "plus2", "cardputer-adv", "stopwatch", "xiao147", "cores3", "core2", "fnk0104b", "jc3248w535", "lcd7", "lcd128", "vn183", "ai-passport", "echoear")
+COMMANDS = ("s3", "s3n", "s3-216", "185c", "aipi", "box3", "c6", "c6-206", "sticks3", "atk-box0", "n16r8", "super-mini", "watcher", "plus2", "cardputer-adv", "stopwatch", "xiao147", "cores3", "core2", "fnk0104b", "jc3248w535", "lcd7", "lcd128", "vn183", "ai-passport", "echoear")
 # Bridges that drop bytes when a whole packet arrives at once, so writes to them
 # go 64 bytes at a time at the line rate (paced_esptool.py, chat.Board.write).
 PACED = (CH342,)

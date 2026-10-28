@@ -78,14 +78,20 @@ void muse_app_run(const muse_board_t *board)
 #if CONFIG_MUSE_VIDEO_WIFI
     muse_video_wifi_start();
 #endif
+#if CONFIG_MUSE_UI_HEADLESS
+    ESP_LOGI(TAG, "headless audio device");
+#else
     ESP_ERROR_CHECK(muse_ui_start());
     ESP_LOGI(TAG, "UI built: free internal %u", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+#endif
 
     QueueHandle_t q = xQueueCreate(16, sizeof(muse_input_event_t));
     ESP_ERROR_CHECK(muse_input_start(q));
 
     /* Let the boot animation (flame ignites, eyes open) play out. */
+#if !CONFIG_MUSE_UI_HEADLESS
     vTaskDelay(pdMS_TO_TICKS(1400));
+#endif
     if (!board->audio_init && !board->mic_init) {
         ESP_LOGI(TAG, "display-only board: no microphone or speaker");
         muse_state_set_mode(MUSE_MODE_IDLE);

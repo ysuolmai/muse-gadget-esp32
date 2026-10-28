@@ -71,6 +71,8 @@ before adding a feature to one.
 | M5Stack Cardputer ADV (experimental) | `esp32s3` | `devices/sdkconfig.muse;devices/sdkconfig.muse-m5stack-cardputer-adv` | `tools/muse/board.sh build cardputer-adv` |
 | M5Stack StickS3 | `esp32s3` | `devices/sdkconfig.muse;devices/sdkconfig.muse-m5stack-sticks3` | manual |
 | ALIENTEK ATK-DNESP32S3-BOX0 | `esp32s3` | `devices/sdkconfig.muse;devices/sdkconfig.muse-alientek-atk-dnesp32s3-box0` | `tools/muse/board.sh build atk-box0` |
+| ESP32-S3-N16R8 | `esp32s3` | `devices/sdkconfig.muse;devices/sdkconfig.muse-esp32-s3-n16r8` | `tools/muse/board.sh build n16r8` |
+| ESP32-S3 Super Mini | `esp32s3` | `devices/sdkconfig.muse;devices/sdkconfig.muse-esp32-s3-super-mini` | `tools/muse/board.sh build super-mini` |
 | M5Stack StopWatch | `esp32s3` | `devices/sdkconfig.muse;devices/sdkconfig.muse-m5stack-stopwatch` | manual |
 | Seeed XIAO ESP32-S3 1.47 Touch Display | `esp32s3` | `devices/sdkconfig.muse;devices/sdkconfig.muse-seeed-xiao-s3-147` | `tools/muse/board.sh build xiao147` |
 | M5Stack CoreS3 | `esp32s3` | `devices/sdkconfig.muse;devices/sdkconfig.muse-m5stack-cores3` | `tools/muse/board.sh build cores3` |

@@ -45,15 +45,42 @@ class LinkEpaperStatusTest(unittest.TestCase):
         result = subprocess.run([str(self.out / "epaper")], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
-    def test_firmware_and_flasher_lists_only_box0(self):
+    def test_firmware_and_flasher_list_only_owned_boards(self):
         workflow = (ROOT.parent / ".github/workflows/esp32.yml").read_text()
         build = workflow.split("\n  build:\n", 1)[1].split("\n  # The web flasher:", 1)[0]
+        owned_boards = [
+            "muse-alientek-atk-dnesp32s3-box0",
+            "muse-esp32-s3-n16r8",
+            "muse-esp32-s3-super-mini",
+        ]
         self.assertEqual(
             re.findall(r"^\s+- board: (.+)$", build, re.MULTILINE),
-            ["muse-alientek-atk-dnesp32s3-box0"],
+            owned_boards,
         )
         boards = json.loads((ROOT.parent / "web-flasher/boards.json").read_text())
-        self.assertEqual([board["board"] for board in boards], ["muse-alientek-atk-dnesp32s3-box0"])
+        self.assertEqual([board["board"] for board in boards], owned_boards)
+
+    def test_headless_i2s_profiles(self):
+        kconfig = (ROOT / "components/muse/Kconfig").read_text()
+        cmake = (ROOT / "components/muse/CMakeLists.txt").read_text()
+        app = (ROOT / "components/muse/muse_app.c").read_text()
+        board = (ROOT / "components/muse/boards/board_esp32s3_i2s_audio.c").read_text()
+        self.assertIn("config MUSE_BOARD_ESP32S3_I2S_AUDIO", kconfig)
+        self.assertIn("default y if MUSE_BOARD_ESP32S3_I2S_AUDIO", kconfig)
+        self.assertIn('boards/board_esp32s3_i2s_audio.c', cmake)
+        self.assertIn("#if CONFIG_MUSE_UI_HEADLESS", app)
+        for pin in (
+            "I2S_BCLK GPIO_NUM_4", "I2S_WS GPIO_NUM_5", "I2S_DOUT GPIO_NUM_1",
+            "I2S_DIN GPIO_NUM_2", "TALK_GPIO GPIO_NUM_0", "I2S_SLOT_BIT_WIDTH_32BIT",
+        ):
+            self.assertIn(pin, board)
+        n16r8 = (ROOT / "devices/sdkconfig.muse-esp32-s3-n16r8").read_text()
+        mini = (ROOT / "devices/sdkconfig.muse-esp32-s3-super-mini").read_text()
+        self.assertIn('CONFIG_SPIRAM_MODE_OCT=y', n16r8)
+        self.assertIn('CONFIG_ESP_CONSOLE_UART_DEFAULT=y', n16r8)
+        self.assertIn('CONFIG_SPIRAM_MODE_QUAD=y', mini)
+        self.assertIn('CONFIG_HOMEHUB_OTA_ENABLED=n', mini)
+        self.assertIn('partitions_muse_4mb.csv', mini)
 
     def test_sticky_board_wiring(self):
         overlay = (ROOT / "devices/sdkconfig.reterminal-sticky").read_text()

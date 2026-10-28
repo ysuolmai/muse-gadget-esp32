@@ -117,6 +117,12 @@ jobs:
           - board: muse-alientek-atk-dnesp32s3-box0
             target: esp32s3
             overlays: ";devices/sdkconfig.muse;devices/sdkconfig.muse-alientek-atk-dnesp32s3-box0"
+          - board: muse-esp32-s3-n16r8
+            target: esp32s3
+            overlays: ";devices/sdkconfig.muse;devices/sdkconfig.muse-esp32-s3-n16r8"
+          - board: muse-esp32-s3-super-mini
+            target: esp32s3
+            overlays: ";devices/sdkconfig.muse;devices/sdkconfig.muse-esp32-s3-super-mini"
     defaults:
       run:
         shell: bash

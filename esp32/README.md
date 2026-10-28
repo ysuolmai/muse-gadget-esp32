@@ -205,6 +205,8 @@ status screen.
 | M5Stack Cardputer ADV (experimental) | UI, GO/Space push-to-talk with text replies, Esc/Enter/arrow menu controls | `tools/muse/board.sh build cardputer-adv` |
 | M5Stack StickS3 | UI, push-to-talk, two-button menu, images | see [`AGENTS.md`](AGENTS.md#boards-with-the-full-ui-by-hand) |
 | ALIENTEK ATK-DNESP32S3-BOX0 | UI, GPIO0 push-to-talk, GPIO4 menu, ES8311 speaker and mic | `tools/muse/board.sh build atk-box0` |
+| ESP32-S3-N16R8 | Headless, GPIO0 push-to-talk, external INMP441 mic and MAX98357A speaker | `tools/muse/board.sh build n16r8` |
+| ESP32-S3 Super Mini | Headless, GPIO0 push-to-talk, external INMP441 mic and MAX98357A speaker; 4 MB build has no OTA | `tools/muse/board.sh build super-mini` |
 | M5Stack StopWatch | UI, push-to-talk, settings, images | see [`AGENTS.md`](AGENTS.md#boards-with-the-full-ui-by-hand) |
 | [Seeed XIAO ESP32-S3 1.47 Touch Display](devices/seeed-xiao-s3-147.md) | UI, USR1 push-to-talk, touch, settings, images; PDM mic, no speaker | `tools/muse/board.sh build xiao147` |
 | M5Stack CoreS3 | UI, touch, PWR push-to-talk, settings, images | see [`AGENTS.md`](AGENTS.md#boards-with-the-full-ui-by-hand) |
