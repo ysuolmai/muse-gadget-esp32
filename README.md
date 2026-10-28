@@ -12,9 +12,9 @@ N16R8 和 Super Mini 使用 INMP441 麦克风及 MAX98357A 喇叭功放，组成
 
 | 设备 | 存储规格 | 音频与控制 | 烧录/串口接口 |
 |---|---|---|---|
-| ATK-DNESP32S3-BOX0 | 8 MB Flash、8 MB octal PSRAM | 屏幕和 ES8311 音频已集成；GPIO0 说话，GPIO4 菜单 | 芯片原生 USB Serial/JTAG |
-| ESP32-S3-N16R8 | 16 MB QIO Flash、8 MB octal PSRAM | 无屏；外接 INMP441 和 MAX98357A；BOOT/GPIO0 说话 | CH343P COM 用于命令行烧录；另有原生 USB 口 |
-| ESP32-S3 Super Mini | 4 MB QIO Flash、2 MB quad PSRAM | 无屏；外接 INMP441 和 MAX98357A；BOOT/GPIO0 说话 | 芯片原生 USB Serial/JTAG |
+| ATK-DNESP32S3-BOX0 | 8 MB Flash、8 MB octal PSRAM | 屏幕和 ES8311 音频已集成；GPIO0 语音键，GPIO4 菜单 | 芯片原生 USB Serial/JTAG |
+| ESP32-S3-N16R8 | 16 MB QIO Flash、8 MB octal PSRAM | 无屏；外接 INMP441 和 MAX98357A；BOOT/GPIO0 语音键 | CH343P COM 用于命令行烧录；另有原生 USB 口 |
+| ESP32-S3 Super Mini | 4 MB QIO Flash、2 MB quad PSRAM | 无屏；外接 INMP441 和 MAX98357A；BOOT/GPIO0 语音键 | 芯片原生 USB Serial/JTAG |
 
 规格参考：[N16R8 用户手册](https://github.com/microrobotics/ESP32-S3-N16R8/blob/main/ESP32-S3-N16R8_User_Guide.pdf)、[ESP32-S3 Super Mini](https://www.espboards.dev/esp32/esp32-s3-super-mini/)。N16R8 的 GPIO35–37 留给 octal PSRAM，不要用于外接模块。
 
@@ -43,7 +43,7 @@ Box0 使用板载屏幕、麦克风和扬声器，不需要外接音频模块。
 - INMP441 使用 3.3V；不要把它接到 5V。
 - ESP32、麦克风和功放必须共地。MAX98357A 的扬声器接功放输出，不能接 ESP32 GPIO。
 - 功放的 5V 和扬声器规格按你手上的 MAX98357A 模块及喇叭确认。
-- 两块无屏板的 BOOT 键就是 GPIO0：短按用于配对确认，按住说话、松开发送语音。
+- 两块无屏板的 BOOT 键就是 GPIO0：配对时按下确认；空闲时短按开始实时通话，长按仍可录制并发送一条语音。
 
 ## 获取固件并烧录
 
@@ -129,9 +129,17 @@ idf.py -B build-muse-alientek-atk-dnesp32s3-box0 -p PORT monitor
 
 开发调试时也可以在 menuconfig 中设置 `CONFIG_HOMEHUB_WIFI_SSID` 和 `CONFIG_HOMEHUB_WIFI_PASSWORD`，让设备启动时连接指定网络。这是本地调试覆盖项，不是正常配网方式；不要把含有私人 Wi-Fi 密码的 `sdkconfig` 提交到仓库。
 
+## 实时语音对话
+
+三款板子的固件默认启用实验性的 `CONFIG_MUSE_REALTIME_VOICE`：短按 GPIO0/BOOT 开始实时通话，之后可以直接轮流交谈，不必每句话都按键。Muse 会用语音回复；再次短按同一按键结束通话。通话外长按按键仍可发送一条语音消息。
+
+INMP441 和 MAX98357A 没有回声消除，因此通话采用半双工：Muse 播放回复时麦克风会暂时关闭，播放结束后自动恢复收音。对话中不能打断 Muse 插话。默认连续静音约 45 秒会结束通话，单次最长约 15 分钟；服务端可能设置更短的限制。实时通话还要求账号所连接的 Muse VM 接受该设备发起的语音通话。
+
 ## 日常使用与重置
 
-- **说话：**按住 GPIO0/BOOT 开始讲话，松开后发送；Muse 的语音回复会从扬声器播放。Box0 使用 GPIO0 说话，GPIO4 打开菜单。
+- **开始/结束通话：**短按 GPIO0/BOOT 开始实时语音通话，再短按一次结束；Box0 的 GPIO4 打开菜单。
+- **发送单条语音：**未进入实时通话时，按住 GPIO0/BOOT 说话，松开后发送。
+- **通话中：**Muse 回复结束后设备会自动恢复收音，直接继续说即可；回复播放期间暂时不采集麦克风。
 - **配对确认：**按下 GPIO0/BOOT 完成手机 App 中的配对确认。
 - **重新配对：**设备运行时长按 GPIO0/BOOT 约 5 秒以清除配对和 Wi-Fi 设置，然后在 Muse App 中重新添加设备。更换 SDK token 后也需要重新配对，设备才会使用新 token。
 - **完全清空：**在 `esp32` 目录运行 `idf.py -B build-muse-esp32-s3-n16r8 -p PORT erase-flash` 会清除固件及 NVS 中的配对、Wi-Fi 和 token；按板型替换 build 目录后，清空完需要重新烧录固件。
