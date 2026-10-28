@@ -193,7 +193,8 @@ jobs:
   deploy-web-flasher:
     name: Deploy web flasher
     needs: web-flasher
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Forks still publish firmware artifacts without requiring Pages setup.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.repository.fork == false
     runs-on: ubuntu-latest
     permissions:
       pages: write
