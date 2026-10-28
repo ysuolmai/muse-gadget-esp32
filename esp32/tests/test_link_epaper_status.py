@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pathlib import Path
+import json
 import os
 import re
 import shlex
 import subprocess
 import tempfile
 import unittest
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -43,6 +44,16 @@ class LinkEpaperStatusTest(unittest.TestCase):
     def test_pixels(self):
         result = subprocess.run([str(self.out / "epaper")], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_firmware_and_flasher_lists_only_box0(self):
+        workflow = (ROOT.parent / ".github/workflows/esp32.yml").read_text()
+        build = workflow.split("\n  build:\n", 1)[1].split("\n  # The web flasher:", 1)[0]
+        self.assertEqual(
+            re.findall(r"^\s+- board: (.+)$", build, re.MULTILINE),
+            ["muse-alientek-atk-dnesp32s3-box0"],
+        )
+        boards = json.loads((ROOT.parent / "web-flasher/boards.json").read_text())
+        self.assertEqual([board["board"] for board in boards], ["muse-alientek-atk-dnesp32s3-box0"])
 
     def test_sticky_board_wiring(self):
         overlay = (ROOT / "devices/sdkconfig.reterminal-sticky").read_text()
@@ -77,10 +88,6 @@ class LinkEpaperStatusTest(unittest.TestCase):
         self.assertTrue(helper.rstrip().endswith("#if CONFIG_MUSE_STICKY_SD"))
         task = sticky[sticky.index("static esp_err_t sd_bus_init("):sticky.index("static void sd_task(")]
         self.assertNotIn("#endif", task)
-        workflow = (ROOT.parent / ".github/workflows/esp32.yml").read_text()
-        self.assertIn('board: reterminal-sticky\n            target: esp32s3\n'
-                      '            overlays: ";devices/sdkconfig.muse;devices/sdkconfig.reterminal-sticky"',
-                      workflow)
         # FreeInk drives the panel (its "sticky" profile); the board file
         # supplies the rest.
         self.assertIn('list(APPEND srcs "boards/board_reterminal_sticky.c")',
@@ -122,10 +129,6 @@ class LinkEpaperStatusTest(unittest.TestCase):
         helper = (ROOT / "tools/board.sh").read_text()
         self.assertIn("reterminal-sticky-link)", helper)
         self.assertIn('DEFAULTS="$DEFAULTS;devices/sdkconfig.$BOARD"', helper)
-        workflow = (ROOT.parent / ".github/workflows/esp32.yml").read_text()
-        self.assertIn('board: reterminal-sticky-link\n            target: esp32s3\n'
-                      '            overlays: ";devices/sdkconfig.reterminal-sticky-link"', workflow)
-
     def test_sticky_features_table_preserves_other_boards(self):
         docs = (ROOT / "devices/README.md").read_text()
         table = docs.split("## Features\n", 1)[1].split("*Sticky entries", 1)[0]
