@@ -37,7 +37,7 @@
 #include "wifi_known.h"
 #include "wifi_mgr.h"
 
-static const char *TAG = "muse.portal";
+static const char *TAG = "link.portal";
 
 #define PORTAL_SSID_MAX 32
 #define PORTAL_PASSWORD_MAX 64
@@ -46,6 +46,7 @@ static const char *TAG = "muse.portal";
 #define PORTAL_AP_IP "192.168.4.1"
 
 static httpd_handle_t s_server;
+static TaskHandle_t s_portal_task;
 static esp_netif_t *s_ap_netif;
 static atomic_bool s_start_requested;
 static char s_ap_ssid[PORTAL_SSID_MAX + 1];
@@ -77,10 +78,13 @@ static bool form_value(const char *body, const char *name,
     const char *p = body;
     while (*p) {
         const char *key = p;
-        const char *eq = strchr(key, '=');
-        if (!eq) break;
-        const char *end = strchr(eq + 1, '&');
-        if (!end) end = eq + 1 + strlen(eq + 1);
+        const char *end = strchr(key, '&');
+        if (!end) end = key + strlen(key);
+        const char *eq = memchr(key, '=', (size_t)(end - key));
+        if (!eq) {
+            p = *end ? end + 1 : end;
+            continue;
+        }
         if ((size_t)(eq - key) == name_len
             && strncmp(key, name, name_len) == 0) {
             if (present) *present = true;
@@ -163,15 +167,6 @@ static esp_err_t handle_index(httpd_req_t *req)
     return send_html(req, page);
 }
 
-static void restart_task(void *arg)
-{
-    (void)arg;
-    vTaskDelay(pdMS_TO_TICKS(1500));
-    ESP_LOGI(TAG, "restarting after portal configuration");
-    esp_restart();
-    vTaskDelete(NULL);
-}
-
 static esp_err_t handle_save(httpd_req_t *req)
 {
     if (req->content_len == 0 || req->content_len >= PORTAL_FORM_MAX) {
@@ -194,7 +189,8 @@ static esp_err_t handle_save(httpd_req_t *req)
     char password[PORTAL_PASSWORD_MAX + 1] = {0};
     char token[PORTAL_TOKEN_MAX] = {0};
     bool token_present = false;
-    bool ok = form_value(body, "ssid", ssid, sizeof(ssid), NULL)
+    bool ok = !memchr(body, 0, got)
+              && form_value(body, "ssid", ssid, sizeof(ssid), NULL)
               && form_value(body, "password", password, sizeof(password), NULL)
               && form_value(body, "token", token, sizeof(token), &token_present);
     wipe(body, req->content_len);
@@ -233,9 +229,7 @@ static esp_err_t handle_save(httpd_req_t *req)
         "<title>已保存</title><style>body{font:16px system-ui;max-width:560px;margin:40px auto;padding:0 18px}</style>"
         "<h1>已保存</h1><p>设备将在几秒后重启。请断开配网热点，等待设备连接 Wi-Fi，然后打开 Muse App 配对。</p>";
     esp_err_t err = send_html(req, page);
-    if (xTaskCreate(restart_task, "portal_restart", 3072, NULL, 4, NULL) != pdPASS) {
-        ESP_LOGE(TAG, "could not start restart task");
-    }
+    xTaskNotifyGive(s_portal_task);
     return err;
 }
 
@@ -319,6 +313,8 @@ static bool start_server(void)
 static void portal_task(void *arg)
 {
     (void)arg;
+    s_portal_task = xTaskGetCurrentTaskHandle();
+    muse_voice_shutdown(3000);
     build_ap_credentials();
     wifi_mgr_set_portal_active(true);
     if (!wifi_mgr_portal_wait_idle(15000) || !start_ap() || !start_server()) {
@@ -344,7 +340,11 @@ static void portal_task(void *arg)
                            s_ap_ssid, s_ap_password, PORTAL_AP_IP);
 #endif
     /* The portal remains available until the user saves and the device reboots. */
-    for (;;) vTaskDelay(portMAX_DELAY);
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    vTaskDelay(pdMS_TO_TICKS(1500));
+    ESP_LOGI(TAG, "restarting after portal configuration");
+    esp_restart();
+    vTaskDelete(NULL);
 }
 
 bool provision_portal_start_async(void)
@@ -352,7 +352,7 @@ bool provision_portal_start_async(void)
     bool expected = false;
     if (!atomic_compare_exchange_strong(&s_start_requested, &expected, true)) {
         ESP_LOGI(TAG, "setup portal already starting or running");
-        return false;
+        return true;
     }
     if (xTaskCreate(portal_task, "muse_portal", 8192, NULL, 4, NULL) != pdPASS) {
         ESP_LOGE(TAG, "could not create setup portal task");

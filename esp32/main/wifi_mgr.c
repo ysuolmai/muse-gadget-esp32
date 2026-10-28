@@ -91,6 +91,7 @@ static bool channel_hint_valid(uint8_t channel) {
 }
 
 static void reconnect_timer_cb(TimerHandle_t t) {
+    if (atomic_load_explicit(&s_portal_active, memory_order_acquire)) return;
     ESP_LOGI(TAG, "reconnect attempt (post-association)");
     atomic_store(&s_sta_idle, false);
     esp_wifi_connect();
@@ -165,6 +166,10 @@ static void event_handler(void *arg, esp_event_base_t base,
             (const wifi_event_sta_disconnected_t *)data;
         ESP_LOGW(TAG, "disconnected reason=%u", event ? event->reason : 0u);
 
+        if (atomic_load_explicit(&s_portal_active, memory_order_acquire)) {
+            xEventGroupSetBits(s_events, BIT_FAIL);
+            return;
+        }
         bool floor_dropped = event && drop_rssi_floor(event->reason);
         if (s_connecting) {
             // Initial connect: retry up to MAX_INITIAL_RETRY, then fail.
@@ -188,6 +193,10 @@ static void event_handler(void *arg, esp_event_base_t base,
             schedule_reconnect();
         }
     } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
+        if (atomic_load_explicit(&s_portal_active, memory_order_acquire)) {
+            esp_wifi_disconnect();
+            return;
+        }
         ip_event_got_ip_t *ev = (ip_event_got_ip_t *)data;
         ESP_LOGI(TAG, "got IP " IPSTR, IP2STR(&ev->ip_info.ip));
         s_retry = 0;
@@ -359,6 +368,7 @@ bool wifi_mgr_connect(const char *ssid, const char *password, int timeout_ms) {
         ESP_LOGE(TAG, "wifi set_config failed: %s", esp_err_to_name(err));
         goto done;
     }
+    if (atomic_load_explicit(&s_portal_active, memory_order_acquire)) goto done;
     atomic_store(&s_sta_idle, false);
     err = esp_wifi_connect();
     if (err != ESP_OK) {
@@ -424,7 +434,10 @@ void wifi_mgr_set_portal_active(bool active) {
     atomic_store_explicit(&s_portal_active, active, memory_order_release);
     if (active) {
         wifi_mgr_disconnect();
-        if (s_inited) esp_wifi_scan_stop();
+        if (s_inited) {
+            esp_wifi_scan_stop();
+            xEventGroupSetBits(s_events, BIT_FAIL);
+        }
     }
 }
 
@@ -473,8 +486,9 @@ int wifi_mgr_scan(wifi_scan_entry_t *out, int max_entries, uint8_t channel,
         ESP_LOGI(TAG, "scan already in progress, skipping");
         return -1;
     }
-    if (atomic_load_explicit(&s_connect_pending, memory_order_acquire)) {
-        ESP_LOGI(TAG, "wifi connect pending, skipping scan");
+    if (atomic_load_explicit(&s_connect_pending, memory_order_acquire)
+        || atomic_load_explicit(&s_portal_active, memory_order_acquire)) {
+        ESP_LOGI(TAG, "wifi connect pending or setup active, skipping scan");
         xSemaphoreGive(s_scan_mutex);
         return -1;
     }

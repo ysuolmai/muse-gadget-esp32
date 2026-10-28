@@ -54,6 +54,7 @@ set(GADGET_REQUIRES
     esp_event
     esp_netif
     esp_http_client
+    esp_http_server
     esp_https_ota
     app_update
     esp_app_format
@@ -83,7 +84,6 @@ set(GADGET_REQUIRES
 
 if(CONFIG_HOMEHUB_SETUP_PORTAL)
     list(APPEND GADGET_SRCS "provision_portal.c")
-    list(APPEND GADGET_REQUIRES esp_http_server)
 endif()
 
 # E-paper has its own status screen in place of led_status.c, with

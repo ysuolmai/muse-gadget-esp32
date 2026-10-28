@@ -352,15 +352,8 @@ static void setup_button_hold(bool pressed, muse_setup_button_t button)
     s_setup_hold_triggered = true;
     ESP_LOGI(TAG, "setup button held for %d seconds; starting local portal",
              SETUP_HOLD_TICKS * POLL_MS / 1000);
-    if (button == MUSE_SETUP_BUTTON_TALK) {
-        /* The talk gesture may already have opened a voice call. Stop it before
-         * taking the radio for the setup AP; the board will reboot after save. */
-        muse_voice_shutdown(3000);
-        s_talk_down = false;
-    }
-    if (!provision_portal_start_async()) {
-        muse_voice_cancel_shutdown();
-    }
+    muse_menu_close();
+    provision_portal_start_async();
 }
 #endif
 
@@ -611,6 +604,9 @@ static void input_task(void *arg)
 {
     (void)arg;
     bool aux_down = false;
+#if CONFIG_HOMEHUB_SETUP_PORTAL
+    bool setup_talk_down = false;
+#endif
     bool paused = false;
     TickType_t checked = xTaskGetTickCount() - pdMS_TO_TICKS(SLEEP_CHECK_MS);
     TickType_t powered = xTaskGetTickCount() - pdMS_TO_TICKS(POWER_MS);
@@ -633,7 +629,10 @@ static void input_task(void *arg)
             talk_button(ev);
         }
 #if CONFIG_HOMEHUB_SETUP_PORTAL
-        setup_button_hold(s_talk_down, MUSE_SETUP_BUTTON_TALK);
+        /* Track physical edges even when pairing or a menu consumes Talk. */
+        if (ev & MUSE_BTN_TALK_PRESS) setup_talk_down = true;
+        if (ev & MUSE_BTN_TALK_RELEASE) setup_talk_down = false;
+        setup_button_hold(setup_talk_down, MUSE_SETUP_BUTTON_TALK);
 #endif
         keyboard_buttons(ev);
         dedicated_buttons(ev);
