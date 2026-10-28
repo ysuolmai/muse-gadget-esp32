@@ -10,7 +10,7 @@ import unittest
 class ProvisionPortalTest(unittest.TestCase):
     def test_form_decoder(self):
         source = (Path(__file__).resolve().parents[1] / "main/provision_portal.c").read_text()
-        decoder = source[source.index("static int hex_digit"):source.index("static esp_err_t send_html")]
+        decoder = source[source.index("static bool ap_password_valid"):source.index("static esp_err_t send_html")]
         harness = r'''
 #include <assert.h>
 #include <stdbool.h>
@@ -18,6 +18,16 @@ class ProvisionPortalTest(unittest.TestCase):
 #include <string.h>
 ''' + decoder + r'''
 int main(void) {
+    assert(ap_password_valid("12345678"));
+    assert(!ap_password_valid(""));
+    assert(!ap_password_valid("1234567"));
+    assert(!ap_password_valid("中文密码12345678"));
+    assert(!ap_password_valid("1234567\n"));
+    char pass[65];
+    memset(pass, 'x', 63); pass[63] = 0;
+    assert(ap_password_valid(pass));
+    pass[63] = 'x'; pass[64] = 0;
+    assert(!ap_password_valid(pass));
     char out[65];
     bool present;
     assert(form_value("ssid=%E4%B8%AD%E6%96%87+WiFi&password=a%26b%3Dc%25%2B",
@@ -29,6 +39,8 @@ int main(void) {
     assert(strcmp(out, "home") == 0);
     assert(form_value("ssid=home", "token", out, sizeof(out), &present));
     assert(!present && out[0] == 0);
+    assert(form_value("ap_password=a%26b%3Dc%25%2B1", "ap_password", out, sizeof(out), NULL));
+    assert(strcmp(out, "a&b=c%+1") == 0 && ap_password_valid(out));
     assert(form_value("token=", "token", out, sizeof(out), &present));
     assert(present && out[0] == 0);
     assert(form_value("ssid=1234", "ssid", out, 5, NULL));

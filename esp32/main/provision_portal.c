@@ -25,12 +25,12 @@
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_netif.h"
-#include "esp_random.h"
 #include "esp_system.h"
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#include "config_store.h"
 #include "identity.h"
 #include "muse_state.h"
 #include "muse_voice.h"
@@ -44,6 +44,8 @@ static const char *TAG = "link.portal";
 #define PORTAL_TOKEN_MAX (IDENTITY_SDK_TOKEN_LEN + 1)
 #define PORTAL_FORM_MAX 2048
 #define PORTAL_AP_IP "192.168.4.1"
+#define PORTAL_AP_PASSWORD_KEY "portal_ap_pass"
+#define PORTAL_AP_PASSWORD_DEFAULT "12345678"
 
 static httpd_handle_t s_server;
 static TaskHandle_t s_portal_task;
@@ -56,6 +58,18 @@ static void wipe(void *data, size_t len)
 {
     volatile unsigned char *p = data;
     while (len--) *p++ = 0;
+}
+
+/* WPA2 passphrase: 8-63 printable ASCII bytes. */
+static bool ap_password_valid(const char *password)
+{
+    size_t len = strlen(password);
+    if (len < 8 || len > 63) return false;
+    for (size_t i = 0; i < len; i++) {
+        if ((unsigned char)password[i] < 0x20
+            || (unsigned char)password[i] > 0x7e) return false;
+    }
+    return true;
 }
 
 static int hex_digit(char c)
@@ -142,7 +156,7 @@ static esp_err_t send_error_page(httpd_req_t *req, const char *message)
 
 static esp_err_t handle_index(httpd_req_t *req)
 {
-    char page[2600];
+    char page[3200];
     int n = snprintf(page, sizeof(page),
         "<!doctype html><meta charset=utf-8><meta name=viewport "
         "content='width=device-width,initial-scale=1'><title>Muse 配网</title>"
@@ -160,6 +174,9 @@ static esp_err_t handle_index(httpd_req_t *req)
         "<label>Muse SDK token</label><input name=token type=password maxlength=48 "
         "placeholder='mgst_...' autocomplete=off>"
         "<small>留空表示保留设备中已有 token。token 只保存在设备 NVS，不会显示在页面上。</small>"
+        "<label>配网热点新密码（可选）</label>"
+        "<input name=ap_password type=password minlength=8 maxlength=63 autocomplete=new-password>"
+        "<small>默认 12345678。留空保持当前密码；修改需为 8–63 位英文、数字或符号，下次进入配网时生效。</small>"
         "<button type=submit>保存并重启</button></form>"
         "<p><small>保存后请断开 <code>%s</code>，让手机和设备回到同一个 Wi-Fi，再用 Muse App 完成配对。</small></p>",
         s_ap_ssid);
@@ -188,41 +205,62 @@ static esp_err_t handle_save(httpd_req_t *req)
     char ssid[PORTAL_SSID_MAX + 1] = {0};
     char password[PORTAL_PASSWORD_MAX + 1] = {0};
     char token[PORTAL_TOKEN_MAX] = {0};
+    char ap_password[64] = {0};
     bool token_present = false;
     bool ok = !memchr(body, 0, got)
               && form_value(body, "ssid", ssid, sizeof(ssid), NULL)
               && form_value(body, "password", password, sizeof(password), NULL)
-              && form_value(body, "token", token, sizeof(token), &token_present);
+              && form_value(body, "token", token, sizeof(token), &token_present)
+              && form_value(body, "ap_password", ap_password, sizeof(ap_password), NULL);
     wipe(body, req->content_len);
     free(body);
-    if (!ok || !ssid[0] || strlen(ssid) > WIFI_KNOWN_SSID_MAX
+    if (!ok || (ap_password[0] && !ap_password_valid(ap_password))) {
+        wipe(ssid, sizeof(ssid));
+        wipe(password, sizeof(password));
+        wipe(token, sizeof(token));
+        wipe(ap_password, sizeof(ap_password));
+        return send_error_page(req, "表单格式或长度不正确；热点密码需为 8–63 位英文、数字或符号。");
+    }
+    if (!ssid[0] || strlen(ssid) > WIFI_KNOWN_SSID_MAX
         || strlen(password) > WIFI_KNOWN_PASS_MAX) {
         wipe(ssid, sizeof(ssid));
         wipe(password, sizeof(password));
         wipe(token, sizeof(token));
+        wipe(ap_password, sizeof(ap_password));
         return send_error_page(req, "SSID 或密码长度不正确。");
     }
     if (token_present && token[0] && !identity_sdk_token_valid(token)) {
         wipe(ssid, sizeof(ssid));
         wipe(password, sizeof(password));
         wipe(token, sizeof(token));
+        wipe(ap_password, sizeof(ap_password));
         return send_error_page(req, "SDK token 格式不正确，应为完整的 mgst_ token。");
     }
     if (token_present && token[0] && !identity_set_sdk_token(token)) {
         wipe(ssid, sizeof(ssid));
         wipe(password, sizeof(password));
         wipe(token, sizeof(token));
+        wipe(ap_password, sizeof(ap_password));
         return send_error_page(req, "SDK token 保存失败，请重试。");
     }
     if (!wifi_known_remember(ssid, password, false)) {
         wipe(ssid, sizeof(ssid));
         wipe(password, sizeof(password));
         wipe(token, sizeof(token));
+        wipe(ap_password, sizeof(ap_password));
         return send_error_page(req, "Wi-Fi 保存失败，请重试。");
+    }
+    if (ap_password[0] && !config_set_str(PORTAL_AP_PASSWORD_KEY, ap_password)) {
+        wipe(ssid, sizeof(ssid));
+        wipe(password, sizeof(password));
+        wipe(token, sizeof(token));
+        wipe(ap_password, sizeof(ap_password));
+        return send_error_page(req, "热点密码保存失败，请重试。");
     }
     wipe(ssid, sizeof(ssid));
     wipe(password, sizeof(password));
     wipe(token, sizeof(token));
+    wipe(ap_password, sizeof(ap_password));
 
     static const char page[] =
         "<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>"
@@ -244,11 +282,10 @@ static void build_ap_credentials(void)
     const char *dash = node ? strrchr(node, '-') : NULL;
     const char *suffix = dash && dash[1] ? dash + 1 : "DEVICE";
     snprintf(s_ap_ssid, sizeof(s_ap_ssid), "Muse-Setup-%s", suffix);
-    static const char alphabet[] = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
-    for (size_t i = 0; i < 16; i++) {
-        s_ap_password[i] = alphabet[esp_random() % (sizeof(alphabet) - 1)];
+    if (!config_get_str(PORTAL_AP_PASSWORD_KEY, s_ap_password, sizeof(s_ap_password))
+        || !ap_password_valid(s_ap_password)) {
+        strlcpy(s_ap_password, PORTAL_AP_PASSWORD_DEFAULT, sizeof(s_ap_password));
     }
-    s_ap_password[16] = '\0';
 }
 
 static bool start_ap(void)
