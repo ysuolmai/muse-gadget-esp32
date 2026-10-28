@@ -34,6 +34,7 @@
 
 #include "muse_audio.h"
 #include "muse_board.h"
+#include "muse_mem.h"
 
 static const char *TAG = "board";
 
@@ -257,7 +258,7 @@ static esp_err_t audio_init(esp_codec_dev_handle_t *spk, esp_codec_dev_handle_t 
     const audio_codec_ctrl_if_t *ctrl_if = audio_codec_new_i2c_ctrl(&ctrl_cfg);
     ESP_RETURN_ON_FALSE(data_if && ctrl_if, ESP_ERR_NO_MEM, TAG, "codec interfaces");
 
-    const es8311_codec_cfg_t es_cfg = {
+    es8311_codec_cfg_t es_cfg = {
         .ctrl_if = ctrl_if,
         .codec_mode = ESP_CODEC_DEV_WORK_MODE_BOTH,
         .pa_pin = GPIO_NUM_NC,
@@ -267,8 +268,8 @@ static esp_err_t audio_init(esp_codec_dev_handle_t *spk, esp_codec_dev_handle_t 
     const audio_codec_if_t *codec = es8311_codec_new(&es_cfg);
     ESP_RETURN_ON_FALSE(codec, ESP_FAIL, TAG, "ES8311 not responding");
 
-    const esp_codec_dev_cfg_t out_cfg = { .dev_type = ESP_CODEC_DEV_TYPE_OUT, .codec_if = codec, .data_if = data_if };
-    const esp_codec_dev_cfg_t in_cfg = { .dev_type = ESP_CODEC_DEV_TYPE_IN, .codec_if = codec, .data_if = data_if };
+    esp_codec_dev_cfg_t out_cfg = { .dev_type = ESP_CODEC_DEV_TYPE_OUT, .codec_if = codec, .data_if = data_if };
+    esp_codec_dev_cfg_t in_cfg = { .dev_type = ESP_CODEC_DEV_TYPE_IN, .codec_if = codec, .data_if = data_if };
     *spk = esp_codec_dev_new(&out_cfg);
     *mic = esp_codec_dev_new(&in_cfg);
     return *spk && *mic ? ESP_OK : ESP_FAIL;
