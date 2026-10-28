@@ -199,6 +199,9 @@ jobs:
           - board: muse-m5stack-sticks3
             target: esp32s3
             overlays: ";devices/sdkconfig.muse;devices/sdkconfig.muse-m5stack-sticks3"
+          - board: muse-alientek-atk-dnesp32s3-box0
+            target: esp32s3
+            overlays: ";devices/sdkconfig.muse;devices/sdkconfig.muse-alientek-atk-dnesp32s3-box0"
           - board: muse-m5stack-stopwatch
             target: esp32s3
             overlays: ";devices/sdkconfig.muse;devices/sdkconfig.muse-m5stack-stopwatch"
