@@ -47,7 +47,7 @@ static int32_t s_mic_dc[2];
 static esp_err_t init(void)
 {
     ESP_RETURN_ON_ERROR(muse_gpio_button_init(&s_talk, TALK_GPIO), TAG, "talk button");
-    s_talk.pressed = gpio_get_level(TALK_GPIO) == 0;
+    /* Let the first poll report a key held after ROM boot but before init. */
     return ESP_OK;
 }
 

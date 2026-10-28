@@ -78,6 +78,7 @@ static const char *TAG = "muse_input";
 #define LONG_TICKS 150         /* 1.5 s: power off */
 #if CONFIG_HOMEHUB_SETUP_PORTAL
 #define SETUP_HOLD_TICKS 500   /* 5 s: local Wi-Fi/token portal */
+#define SETUP_BOOT_WINDOW_MS 10000
 #endif
 #define SLEEP_CHECK_MS 100
 
@@ -340,6 +341,35 @@ static void talk_button(unsigned ev)
 }
 
 #if CONFIG_HOMEHUB_SETUP_PORTAL
+/* Reserve Talk for setup only during startup. Consume the entire gesture,
+ * including its release, so setup cannot also record or start a call. */
+static unsigned setup_boot_talk(unsigned ev, TickType_t now, TickType_t started)
+{
+    static bool down, finished;
+    static TickType_t pressed_at;
+    if (muse_board->setup_button != MUSE_SETUP_BUTTON_TALK || finished) return ev;
+    if (!down && now - started >= pdMS_TO_TICKS(SETUP_BOOT_WINDOW_MS)) {
+        finished = true;
+        return ev;
+    }
+    if (!down && (ev & MUSE_BTN_TALK_PRESS)) {
+        down = true;
+        pressed_at = now;
+    }
+    if (ev & MUSE_BTN_TALK_RELEASE) {
+        down = false;
+    }
+    if (down && now - pressed_at >= pdMS_TO_TICKS(5000)) {
+        if (!s_setup_hold_triggered) {
+            s_setup_hold_triggered = true;
+            provision_portal_start_async();
+        }
+    }
+    /* After a successful hold, wait for release before restoring Talk. */
+    if (!down && s_setup_hold_triggered) finished = true;
+    return ev & ~(MUSE_BTN_TALK_PRESS | MUSE_BTN_TALK_RELEASE);
+}
+
 static void setup_button_hold(bool pressed, muse_setup_button_t button)
 {
     if (muse_board->setup_button != button) return;
@@ -605,7 +635,10 @@ static void input_task(void *arg)
     (void)arg;
     bool aux_down = false;
 #if CONFIG_HOMEHUB_SETUP_PORTAL
-    bool setup_talk_down = false;
+    TickType_t setup_started = xTaskGetTickCount();
+    if (muse_board->setup_button == MUSE_SETUP_BUTTON_TALK) {
+        ESP_LOGI(TAG, "setup: hold BOOT for 5 seconds within the next 10 seconds");
+    }
 #endif
     bool paused = false;
     TickType_t checked = xTaskGetTickCount() - pdMS_TO_TICKS(SLEEP_CHECK_MS);
@@ -613,6 +646,9 @@ static void input_task(void *arg)
 
     for (;;) {
         unsigned ev = muse_board->poll_buttons() | atomic_exchange(&s_touch_talk_events, 0);
+#if CONFIG_HOMEHUB_SETUP_PORTAL
+        ev = setup_boot_talk(ev, xTaskGetTickCount(), setup_started);
+#endif
 #if CONFIG_MUSE_VIDEO
         /* Any press leaves the video view (its release then does nothing). */
         const unsigned presses = MUSE_BTN_TALK_PRESS | MUSE_BTN_AUX_PRESS | MUSE_BTN_POWER_PRESS |
@@ -628,12 +664,6 @@ static void input_task(void *arg)
                      ev & MUSE_BTN_TALK_RELEASE ? " release" : "");
             talk_button(ev);
         }
-#if CONFIG_HOMEHUB_SETUP_PORTAL
-        /* Track physical edges even when pairing or a menu consumes Talk. */
-        if (ev & MUSE_BTN_TALK_PRESS) setup_talk_down = true;
-        if (ev & MUSE_BTN_TALK_RELEASE) setup_talk_down = false;
-        setup_button_hold(setup_talk_down, MUSE_SETUP_BUTTON_TALK);
-#endif
         keyboard_buttons(ev);
         dedicated_buttons(ev);
         /* A latched key (the 1.75's PMU) can report press and release in the
