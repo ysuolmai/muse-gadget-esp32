@@ -92,11 +92,21 @@ Super Mini 只有 4 MB Flash，固件使用单个应用分区，**不支持 OTA 
 
 ## 配置与首次配网
 
+可以直接用设备内置网页配置 Wi-Fi 和 SDK token，不需要先修改源码或重新编译。
+
+1. 设备运行时长按配网键约 **5 秒**：Box0 按中间的 GPIO4 菜单键；N16R8 和 Super Mini 按 BOOT/GPIO0。设备会创建临时的 `Muse-Setup-XXXXXX` Wi-Fi 热点。
+2. Box0 屏幕会显示热点密码；无屏板请连接 USB 串口并查看 `Muse setup AP` 那行输出。热点使用随机 WPA2 密码。
+3. 手机连接这个热点后访问 `http://192.168.4.1/`。部分手机会提示网络无法访问互联网，选择保持连接即可。
+4. 填入家中 2.4 GHz Wi-Fi 名称和密码；可同时填入 `mgst_` SDK token。token 留空会保留设备中已有的 token。
+5. 点保存后设备会重启并连接路由器。手机也切回同一个路由器 Wi-Fi，再在 Muse App 中添加/配对设备。网页热点只在本次配置期间开放，重启后关闭。
+
+该网页适合首次使用、换路由器或更新 token。Muse App 原有的 BLE 配网仍然可用。
+
 ### SDK token
 
 每台设备都需要自己的 Muse SDK token。登录 [Muse SDK token 页面](https://gadgets.muse.ai/settings/sdk-tokens)创建以 `mgst_` 开头的 token。不要把 token 提交到 Git 或公开分享。
 
-推荐在烧录后通过串口写入 token，这样 token 不会编进公开固件。进入 `esp32` 目录，按设备选择 build 目录并打开串口监视器：
+网页配置是最简单的方式。也可以在烧录后通过串口写入 token，这样 token 不会编进公开固件。进入 `esp32` 目录，按设备选择 build 目录并打开串口监视器：
 
 ```sh
 # N16R8
@@ -141,7 +151,7 @@ INMP441 和 MAX98357A 没有回声消除，因此通话采用半双工：Muse �
 - **发送单条语音：**未进入实时通话时，按住 GPIO0/BOOT 说话，松开后发送。
 - **通话中：**Muse 回复结束后设备会自动恢复收音，直接继续说即可；回复播放期间暂时不采集麦克风。
 - **配对确认：**按下 GPIO0/BOOT 完成手机 App 中的配对确认。
-- **重新配对：**设备运行时长按 GPIO0/BOOT 约 5 秒以清除配对和 Wi-Fi 设置，然后在 Muse App 中重新添加设备。更换 SDK token 后也需要重新配对，设备才会使用新 token。
+- **重新配置 Wi-Fi/token：**按住配网键约 5 秒进入本地网页。此操作不会删除现有配对；若更换了 SDK token，需要在 Muse App 中解除旧设备并重新配对，设备才会使用新 token。
 - **完全清空：**在 `esp32` 目录运行 `idf.py -B build-muse-esp32-s3-n16r8 -p PORT erase-flash` 会清除固件及 NVS 中的配对、Wi-Fi 和 token；按板型替换 build 目录后，清空完需要重新烧录固件。
 - **查看日志：**使用上面的 `idf.py -B 对应build目录 -p PORT monitor`。退出串口监视器按 `Ctrl-]`。
 

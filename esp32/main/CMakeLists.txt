@@ -81,6 +81,11 @@ set(GADGET_REQUIRES
     esp_driver_pcnt
 )
 
+if(CONFIG_HOMEHUB_SETUP_PORTAL)
+    list(APPEND GADGET_SRCS "provision_portal.c")
+    list(APPEND GADGET_REQUIRES esp_http_server)
+endif()
+
 # E-paper has its own status screen in place of led_status.c, with
 # a per-panel driver behind epd_panel.h.
 if(CONFIG_HOMEHUB_LED_BACKEND_RETERMINAL_UC8179)

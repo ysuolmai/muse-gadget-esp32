@@ -47,6 +47,10 @@ bool wifi_mgr_get_connected_channel(uint8_t *channel);
 
 void wifi_mgr_disconnect(void);
 
+/* Stops station joins/scans while the local setup portal owns the radio. */
+void wifi_mgr_set_portal_active(bool active);
+bool wifi_mgr_portal_wait_idle(int timeout_ms);
+
 bool wifi_mgr_is_connected(void);
 
 // While wifi_mgr_connect() is joining a network, copies its name out and

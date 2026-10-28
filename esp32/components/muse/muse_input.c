@@ -45,6 +45,9 @@
 #include "muse_ui.h"
 #include "muse_voice.h"
 #include "muse_wifi.h"
+#if CONFIG_HOMEHUB_SETUP_PORTAL
+#include "provision_portal.h"
+#endif
 #if CONFIG_MUSE_VIDEO
 #include "muse_video.h"
 #endif
@@ -73,6 +76,9 @@ static const char *TAG = "muse_input";
 #define GOODBYE_MS 1500        /* let the goodbye animation play */
 #define HINT_TICKS 60          /* 0.6 s: warn that holding powers off */
 #define LONG_TICKS 150         /* 1.5 s: power off */
+#if CONFIG_HOMEHUB_SETUP_PORTAL
+#define SETUP_HOLD_TICKS 500   /* 5 s: local Wi-Fi/token portal */
+#endif
 #define SLEEP_CHECK_MS 100
 
 #define SERIAL_RX 1024         /* the driver drops what doesn't fit, so a console line must */
@@ -83,6 +89,10 @@ static QueueHandle_t s_queue;
 static bool (*s_console_hook)(const char *line);
 static TaskHandle_t s_input;
 static bool s_talk_down;
+#if CONFIG_HOMEHUB_SETUP_PORTAL
+static int s_setup_hold_ticks;
+static bool s_setup_hold_triggered;
+#endif
 /* A push-to-talk press the voice task hasn't taken up yet: the speaker
  * button already ends the call it will start. Each such DOWN sets a mark of
  * its own and carries it; the voice task clears a mark only by that id, so
@@ -328,6 +338,31 @@ static void talk_button(unsigned ev)
 #endif
     s_talk_down = talk_down;
 }
+
+#if CONFIG_HOMEHUB_SETUP_PORTAL
+static void setup_button_hold(bool pressed, muse_setup_button_t button)
+{
+    if (muse_board->setup_button != button) return;
+    if (!pressed) {
+        s_setup_hold_ticks = 0;
+        s_setup_hold_triggered = false;
+        return;
+    }
+    if (s_setup_hold_triggered || ++s_setup_hold_ticks < SETUP_HOLD_TICKS) return;
+    s_setup_hold_triggered = true;
+    ESP_LOGI(TAG, "setup button held for %d seconds; starting local portal",
+             SETUP_HOLD_TICKS * POLL_MS / 1000);
+    if (button == MUSE_SETUP_BUTTON_TALK) {
+        /* The talk gesture may already have opened a voice call. Stop it before
+         * taking the radio for the setup AP; the board will reboot after save. */
+        muse_voice_shutdown(3000);
+        s_talk_down = false;
+    }
+    if (!provision_portal_start_async()) {
+        muse_voice_cancel_shutdown();
+    }
+}
+#endif
 
 /* Keyboard menus don't repurpose Space/GO as Select. Navigation wakes the
  * screen without accidentally changing a setting; Enter can confirm pairing. */
@@ -597,6 +632,9 @@ static void input_task(void *arg)
                      ev & MUSE_BTN_TALK_RELEASE ? " release" : "");
             talk_button(ev);
         }
+#if CONFIG_HOMEHUB_SETUP_PORTAL
+        setup_button_hold(s_talk_down, MUSE_SETUP_BUTTON_TALK);
+#endif
         keyboard_buttons(ev);
         dedicated_buttons(ev);
         /* A latched key (the 1.75's PMU) can report press and release in the
@@ -622,6 +660,9 @@ static void input_task(void *arg)
         if (!aux_edge) {
             aux_key(aux_down, false);
         }
+#if CONFIG_HOMEHUB_SETUP_PORTAL
+        setup_button_hold(aux_down, MUSE_SETUP_BUTTON_AUX);
+#endif
 
         if (s_power_off_requested) {
             s_power_off_requested = false;

@@ -24,3 +24,4 @@ CONFIG_MUSE_HATCH_COMPACT_BUFFERS=y
 
 # Tap BOOT to start a live voice call; tap again to end it.
 CONFIG_MUSE_REALTIME_VOICE=y
+CONFIG_HOMEHUB_SETUP_PORTAL=y

@@ -165,9 +165,14 @@ set(muse_priv_requires
     fatfs esp_driver_sdspi sdmmc)
 list(APPEND muse_priv_requires camera)
 
+set(muse_include_dirs ".")
+if(CONFIG_HOMEHUB_SETUP_PORTAL)
+    list(APPEND muse_include_dirs "../../main")
+endif()
+
 idf_component_register(
     SRCS ${srcs}
-    INCLUDE_DIRS "."
+    INCLUDE_DIRS ${muse_include_dirs}
     EMBED_FILES ${embed}
     LDFRAGMENTS "linker.lf"   # CONFIG_MUSE_STATIC_BUFFERS_IN_PSRAM
     WHOLE_ARCHIVE   # muse_lv_mem.c provides symbols only LVGL references

@@ -61,6 +61,16 @@ menu "ESP32 Device SDK"
             Password for CONFIG_HOMEHUB_WIFI_SSID. Ignored when the SSID
             override is empty.
 
+    config HOMEHUB_SETUP_PORTAL
+        bool "Local Wi-Fi and SDK token setup portal"
+        depends on MUSE_ENABLED && IDF_TARGET_ESP32S3
+        default n
+        help
+            On supported custom ESP32-S3 Muse boards, hold the board's setup
+            button for five seconds to start a temporary WPA2 access point and
+            local web page at 192.168.4.1. The page stores Wi-Fi credentials
+            and optionally the Muse SDK token in NVS, then restarts.
+
     config HOMEHUB_TOKEN_REFRESH_INTERVAL_DAYS
         int "Proactive device token refresh interval (days, 0 = disabled)"
         range 0 365

@@ -65,6 +65,12 @@ extern "C" {
 #define MUSE_BTN_SPEAKER_PRESS (1u << 13)
 #define MUSE_BTN_SPEAKER_RELEASE (1u << 14)
 
+typedef enum {
+    MUSE_SETUP_BUTTON_NONE = 0,
+    MUSE_SETUP_BUTTON_TALK,
+    MUSE_SETUP_BUTTON_AUX,
+} muse_setup_button_t;
+
 /* Where a button's icon goes on screen: beside the button, inside the panel. */
 typedef struct {
     lv_align_t align;
@@ -88,6 +94,8 @@ typedef struct {
     /* Optional dedicated POWER and speaker controls, independent of AUX. */
     const char *power_button;
     const char *speaker_button;
+    /* A five-second hold enters the local Wi-Fi/token setup portal. */
+    muse_setup_button_t setup_button;
     muse_button_hint_t power_hint;
     muse_button_hint_t speaker_hint;
     /* 466 px round-panel layout: dedicated 26-36 px rim icons, safe header chord

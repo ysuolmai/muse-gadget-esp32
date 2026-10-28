@@ -55,6 +55,7 @@ static bool s_keep_connected = false;    // true once we've ever had a successfu
 static atomic_bool s_connect_pending = ATOMIC_VAR_INIT(false);
 // Not joined or joining: nothing for wifi_mgr_connect() to tear down first.
 static atomic_bool s_sta_idle = ATOMIC_VAR_INIT(true);
+static atomic_bool s_portal_active = ATOMIC_VAR_INIT(false);
 static int s_retry = 0;
 static int s_reconnect_backoff_ms = 1000;  // grows on consecutive failures
 #define MAX_INITIAL_RETRY        3
@@ -168,7 +169,9 @@ static void event_handler(void *arg, esp_event_base_t base,
         if (s_connecting) {
             // Initial connect: retry up to MAX_INITIAL_RETRY, then fail.
             // Dropping the RSSI floor starts a fresh scan, not a retry.
-            if (floor_dropped) {
+            if (atomic_load_explicit(&s_portal_active, memory_order_acquire)) {
+                xEventGroupSetBits(s_events, BIT_FAIL);
+            } else if (floor_dropped) {
                 atomic_store(&s_sta_idle, false);
                 esp_wifi_connect();
             } else if (s_retry < MAX_INITIAL_RETRY) {
@@ -236,6 +239,7 @@ void wifi_mgr_init(void) {
 }
 
 bool wifi_mgr_connect(const char *ssid, const char *password, int timeout_ms) {
+    if (atomic_load_explicit(&s_portal_active, memory_order_acquire)) return false;
     if (!s_inited) wifi_mgr_init();
 
     TickType_t started = xTaskGetTickCount();
@@ -262,6 +266,11 @@ bool wifi_mgr_connect(const char *ssid, const char *password, int timeout_ms) {
             return false;
         }
         vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    if (atomic_load_explicit(&s_portal_active, memory_order_acquire)) {
+        atomic_store_explicit(&s_connect_pending, false, memory_order_release);
+        xSemaphoreGive(s_scan_mutex);
+        return false;
     }
 
     wifi_config_t wc = {0};
@@ -411,6 +420,26 @@ void wifi_mgr_disconnect(void) {
     xEventGroupClearBits(s_events, BIT_CONNECTED | BIT_GOT_IP);
 }
 
+void wifi_mgr_set_portal_active(bool active) {
+    atomic_store_explicit(&s_portal_active, active, memory_order_release);
+    if (active) {
+        wifi_mgr_disconnect();
+        if (s_inited) esp_wifi_scan_stop();
+    }
+}
+
+bool wifi_mgr_portal_wait_idle(int timeout_ms) {
+    if (!s_inited || timeout_ms < 0) return false;
+    TickType_t start = xTaskGetTickCount();
+    TickType_t timeout = pdMS_TO_TICKS(timeout_ms);
+    while (xSemaphoreTake(s_scan_mutex, 0) != pdTRUE) {
+        if (xTaskGetTickCount() - start >= timeout) return false;
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    xSemaphoreGive(s_scan_mutex);
+    return true;
+}
+
 bool wifi_mgr_joining(char *ssid, size_t cap) {
     portENTER_CRITICAL(&s_join_lock);
     bool joining = s_join_ssid[0] != '\0';
@@ -430,6 +459,7 @@ esp_netif_t *wifi_mgr_get_netif(void) {
 
 int wifi_mgr_scan(wifi_scan_entry_t *out, int max_entries, uint8_t channel,
                   const char *target_ssid) {
+    if (atomic_load_explicit(&s_portal_active, memory_order_acquire)) return -1;
     if (!s_inited || !out || max_entries <= 0) return 0;
 
     // The driver refuses to scan while a join is winding down

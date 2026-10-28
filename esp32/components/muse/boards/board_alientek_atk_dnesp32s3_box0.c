@@ -358,6 +358,7 @@ static const muse_board_t s_board = {
     .diagonal_in = 1.54f,
     .talk_button = "right",
     .aux_button = "middle",
+    .setup_button = MUSE_SETUP_BUTTON_AUX,
     .talk_hint = { LV_ALIGN_BOTTOM_RIGHT, -6, -6 },
     .aux_hint = { LV_ALIGN_BOTTOM_LEFT, 6, -6 },
     .frame_ms = 40,

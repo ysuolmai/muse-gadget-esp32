@@ -46,3 +46,4 @@ CONFIG_PM_PROFILING=y
 
 # Tap GPIO0 to start a live voice call; tap again to end it.
 CONFIG_MUSE_REALTIME_VOICE=y
+CONFIG_HOMEHUB_SETUP_PORTAL=y

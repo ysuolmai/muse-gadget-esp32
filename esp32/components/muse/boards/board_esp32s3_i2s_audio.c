@@ -137,6 +137,7 @@ static const muse_board_t s_board = {
     .width = 0,
     .height = 0,
     .talk_button = "BOOT",
+    .setup_button = MUSE_SETUP_BUTTON_TALK,
     .init = init,
     .audio_init = audio_init,
     .mic_slot = 0,

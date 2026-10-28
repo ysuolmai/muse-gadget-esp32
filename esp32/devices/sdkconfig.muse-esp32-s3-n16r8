@@ -25,6 +25,7 @@ CONFIG_ESP_WIFI_STATIC_TX_BUFFER_NUM=8
 
 # Tap BOOT to start a live voice call; tap again to end it.
 CONFIG_MUSE_REALTIME_VOICE=y
+CONFIG_HOMEHUB_SETUP_PORTAL=y
 
 # The board guide's COM connector is the CH343P on UART0.
 CONFIG_MUSE_CONSOLE_UART=y
